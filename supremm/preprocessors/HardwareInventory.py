@@ -10,7 +10,7 @@ class HardwareInventory(PreProcessor):
 
     name = property(lambda x: "hinv")
     mode = property(lambda x: "timeseries")
-    requiredMetrics = property(lambda x: ["kernel.percpu.cpu.user"])
+    requiredMetrics = property(lambda x: [["kernel.percpu.cpu.user"], ["hinv.ncpu"]])
     optionalMetrics = property(lambda x: [])
     derivedMetrics = property(lambda x: [])
 
@@ -26,7 +26,10 @@ class HardwareInventory(PreProcessor):
     def process(self, timestamp, data, description):
 
         if len(data) == 1 and data[0][:, 0].size > 0:
-            self.corecount = data[0][:, 0].size
+            if data[0][0, 1] == -1:
+                self.corecount = data[0][0, 0]
+            else:
+                self.corecount = data[0][:, 0].size
             # Have sufficient information, therefore return False to prevent
             # any further callbacks
             return False
