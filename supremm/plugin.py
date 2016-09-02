@@ -252,6 +252,54 @@ class DeviceBasedPlugin(Plugin):
 
         return output
 
+class DeviceInstanceBasedPlugin(Plugin):
+    """
+    A base abstract class for summarising the job-delta for device-based metrics
+    that only have a singe instance.
+    The plugin name and list of required metrics must be provided by the implementation
+    """
+    __metaclass__ = ABCMeta
+
+    mode = property(lambda x: "firstlast")
+
+    def __init__(self, job):
+        super(DeviceInstanceBasedPlugin, self).__init__(job)
+        self._first = {}
+        self._data = {}
+        self._error = None
+
+    def process(self, nodemeta, timestamp, data, description):
+
+        if len(data[0]) == 0:
+            return False
+
+        if nodemeta.nodeindex not in self._first:
+            self._first[nodemeta.nodeindex] = numpy.array(data)
+            return True
+
+        hostdata = numpy.array(data) - self._first[nodemeta.nodeindex]
+
+        for idx, metricname in enumerate(self.requiredMetrics):
+            if metricname not in self._data:
+                self._data[metricname] = []
+            self._data[metricname].append(hostdata[idx, 0])
+
+    def results(self):
+
+        if self._error != None:
+            return {"error": self._error}
+
+        if len(self._data) == 0:
+            return {"error": ProcessingError.INSUFFICIENT_DATA}
+
+        output = {}
+
+        for metricname, metric in self._data.iteritems():
+            prettyname = "-".join(metricname.split(".")[1:])
+            output[prettyname] = calculate_stats(metric)
+
+        return output
+
 
 class RateConvertingTimeseriesPlugin(Plugin):
     """ 
