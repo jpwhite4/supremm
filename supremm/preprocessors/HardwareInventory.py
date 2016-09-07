@@ -2,6 +2,7 @@
 """ hardware inventory pre-processor """
 
 from supremm.plugin import PreProcessor
+from supremm.statistics import calculate_stats
 
 class HardwareInventory(PreProcessor):
     """ Parse and analyse hardware inventory information. Currently
@@ -19,6 +20,7 @@ class HardwareInventory(PreProcessor):
         self.hostname = None
         self.corecount = None
         self.data = {}
+        self.cores = []
 
     def hoststart(self, hostname):
         self.hostname = hostname
@@ -40,11 +42,12 @@ class HardwareInventory(PreProcessor):
         if self.corecount != None:
             self.data[self.hostname] = {'cores': self.corecount}
 
+        self.cores.append(self.corecount)
         self.corecount = None
         self.hostname = None
 
         self._job.adddata(self.name, self.data)
 
     def results(self):
-        return None
+        return {"cores": calculate_stats(self.cores)}
 

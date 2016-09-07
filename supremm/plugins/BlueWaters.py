@@ -14,9 +14,7 @@ class BlueWaters(DeviceInstanceBasedPlugin):
         "bluewaters.RDMA_ntx",
         "bluewaters.RDMA_tx_bytes",
         "bluewaters.RDMA_nrx",
-        "bluewaters.RDMA_rx_bytes",
-        "bluewaters.ipogif0_rx_bytes",
-        "bluewaters.ipogif0_tx_bytes"
+        "bluewaters.RDMA_rx_bytes"
         ])
     optionalMetrics = property(lambda x: [])
     derivedMetrics = property(lambda x: [])

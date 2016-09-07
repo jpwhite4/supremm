@@ -202,6 +202,7 @@ class DeviceBasedPlugin(Plugin):
         self._first = {}
         self._data = {}
         self._error = None
+        self.allmetrics = self.requiredMetrics + self.optionalMetrics
 
     def process(self, nodemeta, timestamp, data, description):
 
@@ -223,7 +224,7 @@ class DeviceBasedPlugin(Plugin):
         for mindex, i in enumerate(description):
             for index in xrange(len(hostdata[mindex, :])):
                 indom = i[1][index]
-                metricname = self.requiredMetrics[mindex]
+                metricname = self.allmetrics[mindex]
 
                 if indom not in self._data:
                     self._data[indom] = {}
