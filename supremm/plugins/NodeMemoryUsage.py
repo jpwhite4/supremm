@@ -59,7 +59,7 @@ class NodeMemoryUsage(Plugin):
 
                 if memdata['physmem'] != None:
                     memused.append(memdata['physmem'] - memdata['free'].mean())
-                    maxmemused.append(memdata['physmem'] - memdata['free'].max)
+                    maxmemused.append(memdata['physmem'] - memdata['free'].min)
 
         if len(memused) == 0:
             return {"error": ProcessingError.INSUFFICIENT_DATA}
