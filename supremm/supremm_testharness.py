@@ -16,7 +16,7 @@ def usage():
 def getoptions():
     """ process comandline options """
 
-    opts, _ = getopt(sys.argv[1:], "dqh",
+    opts, args = getopt(sys.argv[1:], "dqh",
                      ["debug", 
                       "quiet", 
                       "help"])
@@ -32,7 +32,7 @@ def getoptions():
             usage()
             sys.exit(0)
 
-    return retdata
+    return (retdata, args)
 
 class MockJob(object):
     def __init__(self, archivelist):
@@ -79,7 +79,7 @@ def main():
     """
     main entry point for script
     """
-    opts = getoptions()
+    opts, args = getoptions()
 
     logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%dT%H:%M:%S', level=opts['log'])
     if sys.version.startswith("2.7"):
@@ -91,7 +91,7 @@ def main():
     plugins = loadplugins()
     logging.debug("Loaded %s plugins", len(plugins))
 
-    archivelist = [sys.argv[1]]
+    archivelist = [args[0]]
 
     job = MockJob(archivelist)
 
