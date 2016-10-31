@@ -126,6 +126,11 @@ class Job(object):
             if len(nodedata.rawarchives) > 0:
                 yield nodename, nodedata.rawarchives
 
+    def nodedata(self, nodename):
+        if nodename in self._nodes and self._nodes[nodename].archive != None:
+            return self._nodes[nodename].nodeindex, self._nodes[nodename].archive
+        return None, None
+
     def nodearchives(self):
         """ iterator for the combined archives for the nodes in the job """
         for nodename, nodedata in self._nodes.iteritems():

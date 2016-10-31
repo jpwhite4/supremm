@@ -69,13 +69,61 @@ def get_datetime_from_pmResult(result):
     """
     return get_datetime_from_timeval(result.contents.timestamp)
 
+def extract_merge_process(job, conf, resconf, opts, summary):
+    """ Main loop to extract and merge the pcp archives one node at a time """
+    adjust_job_start_end(job)
+
+    if False == create_outputdir(job, conf, resconf):
+        return 1, 0.0
+
+    node_error = 0
+    nodes_seen = 0
+    merge_time = 0.0
+
+    for nodename, nodearchives in job.rawarchives():
+
+        merge_start = time.time()
+        mresult = merge_logs(job, nodename, nodearchives, opts)
+        merge_time += time.time() - merge_start
+
+        nodes_seen += 1
+
+        if 0 == mresult:
+            summary.process_node(nodename)
+        else:
+            node_error -= 1
+
+        if opts['dodelete']:
+            for filename in os.listdir(job.jobdir):
+                os.unlink(os.path.join(job.jobdir, filename))
+
+    nodes_missing = job.nodes - nodes_seen
+    node_error -= nodes_missing
+
+    return node_error, merge_time
+
+
 def extract_and_merge_logs(job, conf, resconf, opts):
     """ merge all of the raw pcp archives into one archive per node for each
         node in the job """
 
     adjust_job_start_end(job)
 
-    return pmlogextract(job, conf, resconf, opts)
+    if False == create_outputdir(job, conf, resconf):
+        return 1
+    
+    # For every node the job ran on...
+    node_error = 0
+    nodes_seen = 0
+
+    for nodename, nodearchives in job.rawarchives():
+        node_error += merge_logs(job, nodename, nodearchives, opts)
+        nodes_seen += 1
+
+    nodes_missing = job.nodes - nodes_seen
+    node_error -= nodes_missing
+
+    return node_error
 
 
 def getlibextractcmdline(startdate, enddate, inputarchives, outputarchive):
@@ -129,18 +177,7 @@ def genoutputdir(job, conf, resconf):
 
     return jobdir
 
-def pmlogextract(job, conf, resconf, opts):
-    """
-    Takes a job description and merges logs for the time it ran.
-
-    Args:
-        job: A Job object describing the job to process.
-        pcp_job_dir: The directory per-job logs will be placed in.
-        pcp_log_dir: The directory containing the source PCP archives, one subdir per host
-    Returns:
-        0 if the merge completed successfully. Otherwise, an error value.
-    """
-
+def create_outputdir(job, conf, resconf):
 
     logging.info("START resource=%s %s", resconf['name'], str(job))
 
@@ -160,53 +197,48 @@ def pmlogextract(job, conf, resconf, opts):
         os.makedirs(jobdir)
     except EnvironmentError as e:
         logging.error("Job directory %s could not be created. Error: %s %s", jobdir, str(e), traceback.format_exc())
-        return 1
+        return False
 
     job.setjobdir(jobdir)
 
+    return True
+
+def merge_logs(job, nodename, nodearchives, opts):
+
     node_error = 0
-    nodes_seen = 0;
 
-    # For every node the job ran on...
-    for nodename, nodearchives in job.rawarchives():
-        nodes_seen += 1
+    # Merge the job logs for the node.
+    node_archive = os.path.join(job.jobdir, nodename)
 
-        # Merge the job logs for the node.
-        node_archive = os.path.join(jobdir, nodename)
-
-        # Call the library version of pmlogextract to avoid fork calls in MPI
-        if opts['libextract']:
-            pcp_cmd = getlibextractcmdline(job.getnodebegin(nodename), job.getnodeend(nodename), nodearchives, node_archive)
-            logging.debug("Calling pypmlogextract.pypmlogextract(%s)", " ".join(pcp_cmd))
-            returncode = pypmlogextract.pypmlogextract(pcp_cmd)
-            if returncode == 0:
-                job.addnodearchive(nodename, node_archive)
-            else:
-                node_error -= 1
-                errdata="pypmlogextract.pypmlogextract(%s) FAILED" % " ".join(pcp_cmd)
-                logging.warning(errdata)
-                job.record_error(errdata)
+    # Call the library version of pmlogextract to avoid fork calls in MPI
+    if opts['libextract']:
+        pcp_cmd = getlibextractcmdline(job.getnodebegin(nodename), job.getnodeend(nodename), nodearchives, node_archive)
+        logging.debug("Calling pypmlogextract.pypmlogextract(%s)", " ".join(pcp_cmd))
+        returncode = pypmlogextract.pypmlogextract(pcp_cmd)
+        if returncode == 0:
+            job.addnodearchive(nodename, node_archive)
         else:
-            pcp_cmd = getextractcmdline(job.getnodebegin(nodename), job.getnodeend(nodename), nodearchives, node_archive)
+            node_error -= 1
+            errdata="pypmlogextract.pypmlogextract(%s) FAILED" % " ".join(pcp_cmd)
+            logging.warning(errdata)
+            job.record_error(errdata)
+    else:
+        pcp_cmd = getextractcmdline(job.getnodebegin(nodename), job.getnodeend(nodename), nodearchives, node_archive)
 
-            logging.debug("Calling %s", " ".join(pcp_cmd))
-            proc = subprocess.Popen(pcp_cmd, stderr=subprocess.PIPE)
-            (_, errdata) = proc.communicate()
+        logging.debug("Calling %s", " ".join(pcp_cmd))
+        proc = subprocess.Popen(pcp_cmd, stderr=subprocess.PIPE)
+        (_, errdata) = proc.communicate()
 
-            if errdata != None and len(errdata) > 0:
-                logging.warning(errdata)
-                job.record_error(errdata)
+        if errdata != None and len(errdata) > 0:
+            logging.warning(errdata)
+            job.record_error(errdata)
 
-            if proc.returncode:
-                errmsg = "pmlogextract return code: %s source command was: %s" % (proc.returncode, " ".join(pcp_cmd))
-                logging.warning(errmsg)
-                node_error -= 1
-                job.record_error(errmsg)
-            else:
-                job.addnodearchive(nodename, node_archive)
-    
-    # We care about errors, but also how many nodes didn't have archives at all
-    nodes_missing = job.nodecount - nodes_seen
-    node_error -= nodes_missing
+        if proc.returncode:
+            errmsg = "pmlogextract return code: %s source command was: %s" % (proc.returncode, " ".join(pcp_cmd))
+            logging.warning(errmsg)
+            node_error -= 1
+            job.record_error(errmsg)
+        else:
+            job.addnodearchive(nodename, node_archive)
 
     return node_error

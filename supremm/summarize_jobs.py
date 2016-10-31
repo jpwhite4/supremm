@@ -7,7 +7,7 @@ import logging
 from supremm.config import Config
 from supremm.account import DbAcct
 from supremm.xdmodaccount import XDMoDAcct
-from supremm.pcparchive import extract_and_merge_logs
+from supremm.pcparchive import extract_and_merge_logs, extract_merge_process
 from supremm import outputter
 from supremm.summarize import Summarize
 from supremm.plugin import loadplugins, loadpreprocessors
@@ -56,6 +56,7 @@ def usage():
     print "                        This directory will be emptied before used and no"
     print "                        subdirectories will be created. This option is ignored "
     print "                        if multiple jobs are to be processed."
+    print "  -S --sequential       Use sequential processing, where archives are processed one at a time"
     print "  -h --help             display this help message and exit."
 
 
@@ -84,11 +85,12 @@ def getoptions():
         "max_nodes": 0,
         "job_output_dir": None,
         "tag": None,
+        "sequential": False,
         "force_timeout": 2 * 24 * 3600,
         "resource": None
     }
 
-    opts, _ = getopt(sys.argv[1:], "ABONCbP:M:j:r:t:dqs:e:LT:t:D:Eo:h", 
+    opts, _ = getopt(sys.argv[1:], "ABONCbP:M:k:r:t:dqs:e:LT:t:D:Eo:Sh", 
                      ["localjobid=", 
                       "resource=", 
                       "threads=", 
@@ -110,6 +112,7 @@ def getoptions():
                       "extract-only", 
                       "use-lib-extract",
                       "output=", 
+                      "sequential",
                       "help"])
 
     for opt in opts:
@@ -155,6 +158,8 @@ def getoptions():
             retdata['extractonly'] = True
         if opt[0] in ("-o", "--output"):
             joboutdir = opt[1]
+        if opt[0] in ("-S", "--sequential"):
+            retdata['sequential'] = True 
         if opt[0] in ("-h", "--help"):
             usage()
             sys.exit(0)
@@ -203,8 +208,64 @@ def getoptions():
     sys.exit(1)
 
 
+def summarize_sequential(job, conf, resconf, plugins, preprocs, m, dblog, opts):
+    """ Main job processing in sequential mode: each archive is created and processed
+        in turn. This has lower temporary storage requirements than step-wise mode
+        """
+
+    success = False
+
+    try:
+        run_start = time.time()
+        preprocessors = [x(job) for x in preprocs]
+        analytics = [x(job) for x in plugins]
+        s = Summarize(preprocessors, analytics, job, conf)
+
+        mergeresult, mergetime = extract_merge_process(job, conf, resconf, opts, s)
+        missingnodes = -1.0 * mergeresult
+
+        if opts['extractonly']: 
+            return 0 == mergeresult
+
+        mdata = {"mergetime": mergetime}
+        
+        if opts['tag'] != None:
+            mdata['tag'] = opts['tag']
+
+        if missingnodes > 0:
+            mdata['missingnodes'] = missingnodes
+
+        m.process(s, mdata)
+
+        success = s.complete()
+
+        force_success = False
+        if not success:
+            force_timeout = opts['force_timeout']
+            if (datetime.datetime.now() - job.end_datetime) > datetime.timedelta(seconds=force_timeout):
+                force_success = True
+
+        dblog.markasdone(job, success or force_success, time.time() - run_start)
+
+    except Exception as e:
+        logging.error("Failure for job %s %s. Error: %s %s", job.job_id, job.jobdir, str(e), traceback.format_exc())
+
+    if opts['dodelete'] and job.jobdir != None and os.path.exists(job.jobdir):
+        # Clean up
+        shutil.rmtree(job.jobdir)
+
+    return success
+
 def summarizejob(job, conf, resconf, plugins, preprocs, m, dblog, opts):
     """ Main job processing, Called for every job to be processed """
+    if opts['sequential']:
+        return summarize_sequential(job, conf, resconf, plugins, preprocs, m, dblog, opts)
+
+    return summarizejob_step(job, conf, resconf, plugins, preprocs, m, dblog, opts)
+
+def summarizejob_step(job, conf, resconf, plugins, preprocs, m, dblog, opts):
+    """ Step-wise job processing: all archives are extracted first then
+        they are all processed in turn """
 
     success = False
 

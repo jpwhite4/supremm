@@ -42,8 +42,9 @@ class Summarize(object):
         self.firstlast = [x for x in analytics if x.mode == "firstlast"]
         self.errors = {}
         self.job = job
-        self.start = time.time()
+        self.start = None
         self.archives_processed = 0
+        self.archive_failures = 0
 
         self.indomcache = None
 
@@ -58,23 +59,40 @@ class Summarize(object):
         else:
             self.errors[category].add(errormsg)
 
+    def process_node(self, nodename):
+        """ external interface to process the data for one node in the job """
+
+        if self.start == None:
+            self.start = time.time()
+
+        nodeidx, archive = self.job.nodedata(nodename)
+        if nodeidx != None:
+            self.process_impl(nodename, nodeidx, archive)
+        else:
+            self.adderror("internal", "missing data for node {0}".format(nodename))
+
+    def process_impl(self, nodename, nodeidx, archive):
+        """ process the data for one node in the job """
+
+        try:
+            self.processarchive(nodename, nodeidx, archive)
+            self.archives_processed += 1
+        except pmapi.pmErr as exc:
+            self.archive_failures -= 1
+            self.adderror("archive", "{0}: pmapi.pmErr: {1}".format(archive, exc.message()))
+        except Exception as exc:
+            self.archive_failures -= 1
+            self.adderror("archive", "{0}: Exception: {1}. {2}".format(archive, str(exc), traceback.format_exc()))
+
     def process(self):
         """ Main entry point. All archives are processed """
-        success = 0
-        self.archives_processed = 0
+
+        self.start = time.time()
 
         for nodename, nodeidx, archive in self.job.nodearchives():
-            try:
-                self.processarchive(nodename, nodeidx, archive)
-                self.archives_processed += 1
-            except pmapi.pmErr as exc:
-                success -= 1
-                self.adderror("archive", "{0}: pmapi.pmErr: {1}".format(archive, exc.message()))
-            except Exception as exc:
-                success -= 1
-                self.adderror("archive", "{0}: Exception: {1}. {2}".format(archive, str(exc), traceback.format_exc()))
+            self.process_impl(nodename, nodeidx, archive)
 
-        return success == 0
+        return self.archive_failures == 0
 
     def complete(self):
         """ A job is complete if archives exist for all assigned nodes and they have
@@ -97,7 +115,9 @@ class Summarize(object):
         if len(je) > 0:
             self.adderror("job", je)
 
-        if self.job.nodecount > 0:
+        data_ok = self.job.nodecount > 0 and self.archives_processed / self.job.nodecount >= 0.95
+
+        if data_ok:
             for analytic in self.alltimestamps:
                 if analytic.status != "uninitialized":
                     if analytic.mode == "all":
@@ -113,24 +133,26 @@ class Summarize(object):
             "elapsed": time.time() - self.start,
             "created": time.time(),
             "srcdir": self.job.jobdir,
+            "seen": self.archives_processed / self.job.nodecount if self.job.nodecount > 0 else None,
             "complete": self.complete()}
 
         output['acct'] = self.job.acct
         output['acct']['id'] = self.job.job_id
 
-        if len(timeseries) > 0:
+        if len(timeseries) > 0 and data_ok:
             timeseries['hosts'] = dict((str(idx), name) for name, idx, _ in self.job.nodearchives())
             timeseries['version'] = TIMESERIES_VERSION
             output['timeseries'] = timeseries
 
-        for preproc in self.preprocs:
-            result = preproc.results()
-            if result != None:
-                output.update(result)
+        if data_ok:
+            for preproc in self.preprocs:
+                result = preproc.results()
+                if result != None:
+                    output.update(result)
 
-        for source, data in self.job.data().iteritems():
-            if 'errors' in data:
-                self.adderror(source, str(data['errors']))
+            for source, data in self.job.data().iteritems():
+                if 'errors' in data:
+                    self.adderror(source, str(data['errors']))
 
         if len(self.errors) > 0:
             output['errors'] = {}
