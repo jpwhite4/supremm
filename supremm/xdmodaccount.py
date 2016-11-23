@@ -4,6 +4,7 @@ from MySQLdb import OperationalError
 from supremm.config import Config
 from supremm.accounting import Accounting, ArchiveCache
 from supremm.scripthelpers import getdbconnection
+from supremm.errors import ProcessingError
 from supremm.Job import Job
 import logging
 
