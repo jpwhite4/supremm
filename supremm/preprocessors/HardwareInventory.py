@@ -49,5 +49,8 @@ class HardwareInventory(PreProcessor):
         self._job.adddata(self.name, self.data)
 
     def results(self):
-        return {"cores": calculate_stats(self.cores)}
+        if len(self.cores) > 0:
+            return {"cores": calculate_stats(self.cores)}
+
+        return None
 
