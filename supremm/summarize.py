@@ -173,7 +173,7 @@ class Summarize(object):
                 r = Summarize.loadrequiredmetrics(context, analytic.requiredMetrics)
                 if len(r) > 0:
                     metriclist += r
-                    metricnames.extend(analytic.requiredMetrics) 
+                    metricnames.extend(analytic.requiredMetrics)
                     metricOk = True
             else:
                 for reqarray in analytic.requiredMetrics:
@@ -459,21 +459,21 @@ class Summarize(object):
 
             else:
                 ctx.pmSetMode(c_pmapi.PM_MODE_BACK, ctx.pmGetArchiveEnd(), 0)
-    
+
                 result = ctx.pmFetch(metric_id_array)
-    
+
                 if result.contents.timestamp.tv_sec == firstimestamp.tv_sec and result.contents.timestamp.tv_usec == firstimestamp.tv_usec:
                     # This achive must only contain one data point for these metrics
                     ctx.pmFreeResult(result)
                     result = None
                     return
-    
+
                 if False == self.runcallback(analytic, result, mtypes, ctx, mdata, metric_id_array):
                     analytic.status = "failure"
                     ctx.pmFreeResult(result)
                     result = None
                     return
-    
+
             analytic.status = "complete"
 
             if result != None:
