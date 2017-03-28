@@ -135,7 +135,7 @@ class Job(object):
     def has_any_archives(self):
         """ are there any archives for this job """
 
-        for nodename, nodedata in self._nodes.iteritems():
+        for _, nodedata in self._nodes.iteritems():
             if len(nodedata.rawarchives) > 0:
                 return True
 
@@ -146,7 +146,7 @@ class Job(object):
 
         num_archives = 0
 
-        for nodename, nodedata in self._nodes.iteritems():
+        for _, nodedata in self._nodes.iteritems():
             if len(nodedata.rawarchives) > 0:
                 num_archives += 1
 
@@ -160,7 +160,7 @@ class Job(object):
 
         num_archives = 0
 
-        for nodename, nodedata in self._nodes.iteritems():
+        for _, nodedata in self._nodes.iteritems():
             if nodedata.archive != None:
                 num_archives += 1
 
@@ -168,7 +168,6 @@ class Job(object):
             return True
         else:
             return False
-        
 
     def setnodebeginend(self, node, begin, end):
         """
