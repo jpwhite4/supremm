@@ -87,6 +87,9 @@ class XDMoDAcct(Accounting):
         query = self._query + " AND jf.end_time_ts BETWEEN unix_timestamp(%s) AND unix_timestamp(%s)"
         data = (self._resource_id, start, end)
 
+        query += " AND (p.process_version != %s OR p.process_version IS NULL)"
+        data = data + (Accounting.PROCESS_VERSION, )
+
         if self._nthreads != None and self._threadidx != None:
             query += " AND (CRC32(jf.local_job_id_raw) %% %s) = %s"
             data = data + (self._nthreads, self._threadidx)
