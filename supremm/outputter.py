@@ -113,7 +113,10 @@ class MongoOutput(object):
         """ output the summary record """
 
         summary = summaryobj.get()
-        mongoid = str(summary['acct']['id']) + '-' + str(summary['acct']['end_time'])
+        if '_id' in summary['acct']:
+            mongoid =  summary['acct']['_id']
+        else:
+            mongoid = str(summary['acct']['id']) + '-' + str(summary['acct']['end_time'])
         summary['_id'] = mongoid
         summary['summarization'].update(mdata)
 

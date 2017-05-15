@@ -36,6 +36,8 @@ class PcpArchiveProcessor(object):
         self.hostname_mode = resconf['hostname_mode']
         if self.hostname_mode == "fqdn":
             self.hostnameext = resconf['host_name_ext']
+        if self.hostname_mode == "path":
+            self.basepath = resconf['pcp_log_dir']
         self.dbac = archive_cache_factory(resconf, config)
 
     @staticmethod
@@ -70,6 +72,13 @@ class PcpArchiveProcessor(object):
                 # The full domain name is ignored and only the hostname part matters
                 # to uniquely identify a node
                 hostname = mdata.hostname.split(".")[0]
+            elif self.hostname_mode == "path":
+                # Ignore the hostname in the archive file itself an instead use
+                # the name of the first subdirectory from the base path.
+                if not archive.startswith(self.basepath):
+                    raise ValueError('archive path does not include the configured basepath')
+                components = archive[len(self.basepath):].split(os.path.sep)
+                hostname = components[1]
 
             jobid = self.parsejobid(archive)
 
@@ -128,9 +137,11 @@ class PcpArchiveFinder(object):
 
         mtch = self.fregex.match(filename)
         if mtch == None:
-            logging.error(
-                "Unparsable filename %s processing anyway.", filename)
-            return True
+            dreg = re.compile(r"^archive-(\d{4})(\d{2})(\d{2})\.(\d{2})(\d{2})(\d{2})\.index$")
+            mtch = dreg.match(filename)
+            if mtch == None:
+                logging.error("Unparsable filename %s processing anyway.", filename)
+                return True
 
         if mtch.group(4) != None and mtch.group(5) != None:
             filedate = datetime(year=int(mtch.group(1)), month=int(mtch.group(2)), day=int(mtch.group(3)), hour=int(mtch.group(4)), minute=int(mtch.group(5)))
@@ -166,25 +177,33 @@ class PcpArchiveFinder(object):
 
         return dirdate > self.mindate
 
-    def find(self, topdir):
+    def find(self, topdir, pathfilter=None):
         """  find all archive files in topdir """
         if topdir == "":
             return
 
         hosts = os.listdir(topdir)
 
+        if pathfilter != None:
+            hosts = [host for host in hosts if pathfilter.match(host) != None]
+
         starttime = time.time()
         hostcount = 0
         currtime = starttime
 
         for hostname in hosts:
+
             hostdir = os.path.join(topdir, hostname)
             t1 = time.time()
-            datdirs = os.listdir(hostdir)
+            try:
+                datdirs = os.listdir(hostdir)
+            except OSError as e:
+                datdirs = []
             t2 = time.time()
             t3 = t2
             t4 = t2
             for datedir in datdirs:
+
 
                 yeardirOk = self.ymdok(datedir)
 
@@ -302,7 +321,11 @@ def runindexing():
             acache = PcpArchiveProcessor(config, resource)
             afind = PcpArchiveFinder(opts['mindate'], opts['maxdate'])
 
-            for archivefile in afind.find(resource['pcp_log_dir']):
+            pathfilter = None
+            if 'path_filter' in resource and len(resource['path_filter']) > 0: 
+                pathfilter = re.compile(resource['path_filter'])
+
+            for archivefile in afind.find(resource['pcp_log_dir'], pathfilter):
                 acache.processarchive(archivefile)
 
             acache.close()

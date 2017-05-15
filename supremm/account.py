@@ -27,12 +27,24 @@ class DbInsert(object):
 
         self.con = mdb.connect(db=dbname, read_default_file=mydefaults)
         self.buffered = 0
-        self._hostlistcache = {}
+        self._hostnamecache = {}
 
         cur = self.con.cursor()
-        cur.execute("SELECT hostname FROM hosts")
+        cur.execute("SELECT resource_id, hostname FROM hosts")
         for host in cur:
-            self._hostlistcache[host[0]] = 1
+            self.addtocache(host[0], host[1])
+
+    def addtocache(self, resource_id, hostname):
+        if resource_id not in self._hostnamecache:
+            self._hostnamecache[resource_id] = {}
+        self._hostnamecache[resource_id][hostname] = 1
+
+    def checkcache(self, resource_id, hostname):
+        if resource_id not in self._hostnamecache:
+            return False
+        if hostname not in self._hostnamecache[resource_id]:
+            return False
+        return True
 
     def insert(self, data, hostnames):
         """
@@ -40,19 +52,24 @@ class DbInsert(object):
         """
         cur = self.con.cursor()
         try:
-            query = "INSERT INTO job (resource_id, local_job_id, start_time_ts, end_time_ts, record) VALUES(%s,%s,%s,%s,COMPRESS(%s))"
+            query = "INSERT INTO job (resource_id, local_job_id, start_time_ts, end_time_ts, record) VALUES(%s,%s,%s,%s,COMPRESS(%s)) ON DUPLICATE KEY UPDATE end_time_ts = VALUES(end_time_ts), record = VALUES(record)"
             cur.execute(query, data)
+            self.con.commit()
 
             for host in hostnames:
-                if host not in self._hostlistcache:
-                    cur.execute("INSERT IGNORE INTO hosts (hostname) VALUES (%s)", [host])
+                if False == self.checkcache(data[0], host):
+                    cur.execute("INSERT IGNORE INTO hosts (resource_id, hostname) VALUES (%s, %s)", [data[0], host])
                     self.con.commit()
-                    self._hostlistcache[host] = 1
+                    self.addtocache(data[0], host)
 
-                cur.execute("INSERT INTO jobhosts (jobid, hostid) VALUES( (SELECT id FROM job WHERE resource_id = %s AND local_job_id = %s AND end_time_ts = %s), (SELECT id FROM hosts WHERE hostname = %s) )",
-                            [data[0], data[1], data[3], host])
+                try:
+                    cur.execute("INSERT IGNORE INTO jobhosts (jobid, hostid) VALUES( (SELECT id FROM job WHERE resource_id = %s AND local_job_id = %s AND end_time_ts = %s), (SELECT id FROM hosts WHERE hostname = %s AND resource_id = %s) )",
+                            [data[0], data[1], data[3], host, data[0]])
+                except Exception as e:
+                    print "INSERT INTO jobhosts (jobid, hostid) VALUES( (SELECT id FROM job WHERE resource_id = %s AND local_job_id = %s AND end_time_ts = %s), (SELECT id FROM hosts WHERE hostname = %s AND resource_id = %s) )" % (data[0], data[1], data[3], host, data[0])
+                    raise e
 
-            cur.execute("INSERT INTO process (jobid, ingest_version) VALUES ( (SELECT id FROM job WHERE resource_id = %s AND local_job_id = %s AND end_time_ts = %s), %s)", [data[0], data[1], data[3], INGEST_VERSION])
+            cur.execute("INSERT IGNORE INTO process (jobid, ingest_version) VALUES ( (SELECT id FROM job WHERE resource_id = %s AND local_job_id = %s AND end_time_ts = %s), %s)", [data[0], data[1], data[3], INGEST_VERSION])
         except mdb.IntegrityError as e:
             if e[0] != 1062:
                 raise e
@@ -95,31 +112,70 @@ class DbArchiveCache(ArchiveCache):
         self._hostnamecache = {}
 
         cur = self.con.cursor()
-        cur.execute("SELECT hostname FROM hosts")
+        cur.execute("SELECT resource_id, hostname FROM hosts")
         for host in cur:
-            self._hostnamecache[host[0]] = 1
+            self.addtocache(host[0], host[1])
+
+    def addtocache(self, resource_id, hostname):
+        if resource_id not in self._hostnamecache:
+            self._hostnamecache[resource_id] = {}
+        self._hostnamecache[resource_id][hostname] = 1
+
+    def checkcache(self, resource_id, hostname):
+        if resource_id not in self._hostnamecache:
+            return False
+        if hostname not in self._hostnamecache[resource_id]:
+            return False
+        return True
 
     def insert(self, resource_id, hostname, filename, start, end, jobid):
         """
         Insert a job record
         """
         cur = self.con.cursor()
-        try:
-            if hostname not in self._hostnamecache:
-                cur.execute("INSERT IGNORE INTO hosts (hostname) VALUES (%s)", [hostname])
-                self.con.commit()
-                self._hostnamecache[hostname] = 1
 
-            query = """INSERT INTO archive (hostid, filename, start_time_ts, end_time_ts, jobid) 
-                       VALUES( (SELECT id FROM hosts WHERE hostname = %s),%s,%s,%s,%s) 
-                       ON DUPLICATE KEY UPDATE start_time_ts=%s, end_time_ts=%s"""
-            cur.execute(query, [hostname, filename, start, end, jobid, start, end])
+        if False == self.checkcache(resource_id, hostname):
+            cur.execute("INSERT IGNORE INTO hosts (resource_id, hostname) VALUES (%s, %s)", [resource_id, hostname])
+            self.con.commit()
+            self.addtocache(resource_id, hostname)
 
-        except mdb.IntegrityError as e:
-            if e[0] != 1062:
-                raise e
-            # else:
-                # Todo - check that the blobs match on duplicate records
+        filenamequery = """INSERT INTO `archive_paths` (`filename`) VALUES (%s) ON DUPLICATE KEY UPDATE id = id """
+
+        cur.execute(filenamequery, [filename])
+        if cur.lastrowid != 0:
+            filenamequery = "%s"
+            filenameparam = cur.lastrowid
+        else:
+            filenamequery = "(SELECT id FROM `archive_paths` WHERE `filename` = %s)"
+            filenameparam = filename
+
+        if jobid != None:
+            query = """INSERT INTO `archives_joblevel` 
+                            (archive_id, host_id, local_job_id_raw, start_time_ts, end_time_ts) 
+                       VALUES (
+                            {0},
+                            (SELECT id FROM `hosts` WHERE resource_id = %s AND hostname = %s),
+                            %s,
+                            FLOOR(%s),
+                            CEILING(%s)
+                       )
+                       ON DUPLICATE KEY UPDATE start_time_ts = VALUES(start_time_ts), end_time_ts = VALUES(end_time_ts)
+                    """.format(filenamequery)
+
+            cur.execute(query, [filenameparam, resource_id, hostname, jobid, start, end])
+        else:
+            query = """INSERT INTO `archives_nodelevel`
+                            (archive_id, host_id, start_time_ts, end_time_ts)
+                       VALUES (
+                            {0},
+                            (SELECT id FROM `hosts` WHERE resource_id = %s AND hostname = %s),
+                            FLOOR(%s),
+                            CEILING(%s)
+                       )
+                       ON DUPLICATE KEY UPDATE start_time_ts = VALUES(start_time_ts), end_time_ts = VALUES(end_time_ts)
+                    """.format(filenamequery)
+
+            cur.execute(query, [filenameparam, resource_id, hostname, start, end])
 
         self.buffered += 1
         if self.buffered > 100:
@@ -187,23 +243,23 @@ class DbAcct(Accounting):
         self.procid = procid
 
         self.hostquery = """SELECT
-                           h.hostname, GROUP_CONCAT(a.filename ORDER BY a.start_time_ts ASC SEPARATOR 0x1e)
+                           h.hostname, GROUP_CONCAT(ap.filename ORDER BY na.start_time_ts ASC SEPARATOR 0x1e)
                        FROM
                            `hosts` h,
-                           `archive` a,
+                           `archive_paths` ap,
+                           `archives_nodelevel` na,
                            `jobhosts` jh,
                            `job` j
                        WHERE
                            j.id = jh.jobid 
                            AND jh.jobid = %s 
                            AND jh.hostid = h.id
-                           AND a.hostid = h.id
-                           AND (
-                               (j.start_time_ts BETWEEN a.start_time_ts AND a.end_time_ts)
-                               OR (j.end_time_ts BETWEEN a.start_time_ts AND a.end_time_ts)
-                               OR (j.start_time_ts < a.start_time_ts and j.end_time_ts > a.end_time_ts)
-                           )
-                           AND (a.jobid = CAST(j.local_job_id AS CHAR) OR a.jobid IS NULL)
+                           AND na.host_id = h.id
+                           AND ((j.start_time_ts BETWEEN na.start_time_ts AND na.end_time_ts)
+                           OR (j.end_time_ts BETWEEN na.start_time_ts AND na.end_time_ts)
+                           OR (j.start_time_ts < na.start_time_ts
+                           AND j.end_time_ts > na.end_time_ts))
+                           AND ap.id = na.archive_id 
                        GROUP BY 1 """
 
     @staticmethod
@@ -238,25 +294,25 @@ class DbAcct(Accounting):
                         `job` j
                 WHERE 
                         j.resource_id = %s 
-                        AND j.local_job_id = %s """
+                        AND j.local_job_id LIKE %s """
 
-        data = (self._resource_id, localjobid)
+        data = (self._resource_id, localjobid + '%')
 
         cur = self.con.cursor()
         cur.execute(query, data)
 
         for record in cur:
             jobid = record[0]
-            jobrec = json.loads(record[1])
+            r = json.loads(record[1])
 
             hostcur = self.hostcon.cursor()
             hostcur.execute(self.hostquery, (jobid, ))
 
             hostarchives = {}
-            for host in hostcur:
-                hostarchives[host[0]] = host[1].split(chr(0x1e))
+            for h in hostcur:
+                hostarchives[h[0]] = h[1].split(chr(0x1e))
 
-            yield self.recordtojob(jobrec, jobrec['host_list'], hostarchives)
+            yield self.recordtojob(r, hostarchives.keys(), hostarchives)
 
     def getbytimerange(self, start, end, onlynew):
         """
@@ -345,7 +401,7 @@ class DbAcct(Accounting):
 
             yield self.recordtojob(r, hostarchives.keys(), hostarchives)
 
-    def markasdone(self, job, success, elapsedtime):
+    def markasdone(self, job, success, elapsedtime, error):
         if success:
             self._dblog.logprocessed(job.acct, self._resource_id, elapsedtime)
         else:
