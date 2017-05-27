@@ -9,6 +9,7 @@ class FakePcp(object):
 
 sys.modules["pcp"] = FakePcp
 sys.modules["pcp.pmapi"] = FakePcp
+sys.modules["cpmapi"] = FakePcp
 
 from supremm.proc_common import getoptions
 import logging
