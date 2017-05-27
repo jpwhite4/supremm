@@ -7,9 +7,14 @@ class FakePcp(object):
     def pmapi():
         pass
 
+class FakeCpmapi(object):
+    @staticmethod
+    def foo():
+        pass
+
 sys.modules["pcp"] = FakePcp
 sys.modules["pcp.pmapi"] = FakePcp
-sys.modules["cpmapi"] = FakePcp
+sys.modules["cpmapi"] = FakeCpmapi
 
 from supremm.proc_common import getoptions
 import logging
