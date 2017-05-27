@@ -7,6 +7,7 @@ class FakePcp(object):
     def pmapi():
         pass
 
+sys.modules["pcp"] = FakePcp
 sys.modules["pcp.pmapi"] = FakePcp
 
 from supremm.proc_common import getoptions
