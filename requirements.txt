@@ -1,3 +1,4 @@
 Cython
 pymongo
 MySQL-python
+pylint
