@@ -1,7 +1,15 @@
 import unittest
-from mock import patch
-from supremm.proc_common import getoptions
 import sys
+from mock import patch
+
+class FakePcp(object):
+    @staticmethod
+    def pmapi():
+        pass
+
+sys.modules["pcp.pmapi"] = FakePcp
+
+from supremm.proc_common import getoptions
 import logging
 import datetime
 
