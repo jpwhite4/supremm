@@ -1,0 +1,8 @@
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=240
+
+[TYPECHECK]
+ignored-modules = numpy,scipy.signal,scipy.stats
+ignored-classes = numpy,scipy.signal,scipy.stats
