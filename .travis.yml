@@ -11,5 +11,5 @@ install:
   - pip install -r requirements.txt
   - pip install .
 script:
-  - pylint --errors-only --disable=F0401,E0611 supremm
+  - if [ $TRAVIS_PYTHON_VERSION != "2.6" ]; then pylint --errors-only --disable=F0401,E0611 supremm; fi
   - cd tests && python -m unittest discover
