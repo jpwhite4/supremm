@@ -6,6 +6,7 @@ before_install:
   - echo "deb https://dl.bintray.com/pcp/wheezy wheezy main" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get -qq update
   - sudo apt-get install -y --allow-unauthenticated libpcp3 libpcp3-dev
+  - grep SIZEOF_SUSECONDS_T /usr/include/pcp/config*
 install:
   - pip install -r requirements.txt
   - pip install .
