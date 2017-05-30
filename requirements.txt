@@ -1,7 +1,7 @@
 Cython
 pymongo
 MySQL-python
-pcp=1.1
+pcp == 1.1
 pylint
 discover; python_version < '2.7'
 backport_collections; python_version < '2.7'
