@@ -4,7 +4,7 @@ python:
 before_install:
   - echo "deb https://dl.bintray.com/pcp/wheezy wheezy main" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get -qq update
-  - sudo apt-get install -y --allow-unauthenticated libpcp3=3.11.7 libpcp3-dev=3.11.7
+  - sudo apt-get install -y --allow-unauthenticated libpcp3=3.11.7 libpcp3-dev=3.11.7 pcp-conf=3.11.7
 install:
   - pip install -r requirements.txt
   - pip install .
