@@ -2,7 +2,7 @@ language: python
 python:
   - "2.7"
 before_install:
-  - echo "deb https://dl.bintray.com/pcp/wheezy {distribution} {components}" | sudo tee -a /etc/apt/sources.list
+  - echo "deb https://dl.bintray.com/pcp/wheezy wheezy main" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get -qq update
   - sudo apt-get install -y libpcp3 libpcp3-dev
 install:
