@@ -1,5 +1,6 @@
 language: python
 python:
+  - "2.6"
   - "2.7"
 before_install:
   - echo "deb https://dl.bintray.com/pcp/wheezy wheezy main" | sudo tee -a /etc/apt/sources.list
@@ -9,4 +10,4 @@ install:
   - pip install -r requirements.txt
   - pip install .
 # command to run tests
-script: python -m unittest discover -s tests && pylint --errors-only supremm
+script: python -m unittest discover -s tests #&& pylint --errors-only --errors-only --disable=F0401,E0611 supremm
