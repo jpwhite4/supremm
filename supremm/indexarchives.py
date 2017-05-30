@@ -79,7 +79,7 @@ class PcpArchiveProcessor(object):
             logging.debug("processed archive %s", archive)
 
         except pmapi.pmErr as exc:
-            logging.error("archive %s. %s", archive, exc.message())
+            logging.error("archive %s. %s", archive, exc.message)
 
     def close(self):
         """ cleanup and close the connection """

@@ -4,5 +4,5 @@
 max-line-length=240
 
 [TYPECHECK]
-ignored-modules = numpy,scipy.signal,scipy.stats,cpmapi,MySQLdb
-ignored-classes = numpy,scipy.signal,scipy.stats
+ignored-modules = cpmapi, MySQLdb
+ignored-classes = numpy, scipy.stats
