@@ -1,0 +1,32 @@
+FROM       centos:centos6
+MAINTAINER Joseph P. White <jpwhite4@buffalo.edu>
+
+RUN yum -y install epel-release && yum -y update
+
+RUN yum install -y \
+    gcc \
+    rsync \
+    vim \
+    sudo \
+    numpy \
+    scipy \
+    python-devel \
+    python-pip \
+    python-mock \
+    python-ctypes \
+    python-pcp \
+    python-pymongo \
+    MySQL-python \
+    python-setuptools \
+    python-backport_collections \
+    jq \
+    pcp-libs-devel \
+    pcp-devel
+
+RUN pip install Cython unittest2
+
+RUN pip install --upgrade setuptools
+
+ADD . /root
+
+WORKDIR /root

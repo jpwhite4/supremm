@@ -1,9 +1,12 @@
 language: none
+env:
+    - IMAGE_NAME="pseudo_repo/supremm_centos7" DOCKERFILE=dockerfile.centos7
+    - IMAGE_NAME="pseudo_repo/supremm_centos6" DOCKERFILE=dockerfile.centos6
 build:
     pre_ci:
-        - docker build -t pseudo_repo/supremm_centos7:latest .
+        - docker build -t $IMAGE_NAME:latest -f $DOCKERFILE .
     pre_ci_boot:
-        image_name: pseudo_repo/supremm_centos7
+        image_name: $IMAGE_NAME
         image_tag: latest
         pull: false
         options: "--user root -e HOME=/root"
