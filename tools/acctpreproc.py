@@ -2,10 +2,13 @@
 import os
 import json
 import sys
+import datetime
+import re
 
 class AcctFileSubset(object):
     def __init__(self, config):
         self.config = config
+        self.datere = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.")
 
     def subsetfile(self, filename):
         with open(filename, "r") as filep:
@@ -20,6 +23,14 @@ class AcctFileSubset(object):
 
     def process(self):
         for filename in os.listdir(self.config['datasource']):
+
+            if self.config['mindate'] != None:
+                datematch = self.datere.match(filename)
+                if datematch:
+                    filedate = datetime.datetime(year=int(datematch.group(1)), month=int(datematch.group(2)), day=int(datematch.group(3)))
+                    if filedate < self.config['mindate']:
+                        continue
+
             fullpath = os.path.join(self.config['datasource'], filename)
             if os.path.isfile(fullpath):
                 self.subsetfile(fullpath)
@@ -34,6 +45,11 @@ def getconfig(configfile):
         rset.update(settings)
         rset['name'] = resource
 
+        if '-a' in sys.argv:
+            rset['mindate'] = None
+        else:
+            rset['mindate'] = datetime.datetime.now() - datetime.timedelta(days=3)
+            
         yield rset
 
 
