@@ -1,0 +1,33 @@
+{
+    "#": "Configuration file for acctprepro script",
+    "defaults": {
+        "#": "The default values are inherited by all resource configs, but may be overridden",
+        "field": 3,
+        "delimiter": "|",
+        "datasource": "/data/scratch/accounting",
+        "outdir": "/data/scratch/post-processed-accountdata"
+    },
+    "resources": {
+        "POSEIDON-LARGE": {
+            "include": [
+                "LM",
+                "XLM"
+            ]
+        },
+        "POSEIDON": {
+            "include": [
+                "RM-SMALL",
+                "RM",
+                "RM-SHARED",
+                "VM"
+            ]
+        },
+        "POSEIDON-GPU": {
+            "include": [
+                "GPU",
+                "GPU_SHARED",
+                "GPU-SMALL"
+            ]
+        }
+    }
+}
