@@ -11,15 +11,19 @@ class AcctFileSubset(object):
         self.datere = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\.")
 
     def subsetfile(self, filename):
+        origstat = os.stat(filename)
         with open(filename, "r") as filep:
             outfilename = os.path.join(self.config['outdir'], self.config['name'], os.path.basename(filename))
             with open(outfilename, "w") as outfile:
                 for line in filep:
+                    line = line.decode("utf-8", errors="ignore")
                     tokens = line.split(self.config['delimiter'])
+
                     if len(tokens) < self.config['field']:
                         continue
                     if tokens[self.config['field']] in self.config['include']:
-                        outfile.write(line)
+                        outfile.write(line.encode("utf-8"))
+            os.utime(outfilename, (origstat.st_atime, origstat.st_mtime))
 
     def process(self):
         for filename in os.listdir(self.config['datasource']):
