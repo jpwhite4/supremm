@@ -9,23 +9,45 @@ import sys
 
 import pkg_resources
 
-from supremm.xdmodstylesetupmenu import XDMoDStyleSetupMenu
+from MySQLdb import ProgrammingError
+
+from supremm.scripthelpers import getdbconnection
 from supremm.config import Config
+from supremm.xdmodstylesetupmenu import XDMoDStyleSetupMenu
 
 
-def update_mysql_tables(display, opts):
+def checkForPreviousInstall(display, dbsettings):
+    """ Query the database to check that the database table from a 1.0 install is present """
+
+    dbcon = getdbconnection(dbsettings)
+    try:
+        cur = dbcon.cursor()
+        cur.execute('SELECT 1 FROM `modw_supremm`.`archive` LIMIT 1')
+        cur.close()
+    except ProgrammingError:
+        display.print_warning("""No previous install detected. No migration will be performed. Please refer to
+the documentation for instructions on how to setup a new instance of the
+software using the 'supremm-setup' command.
+""")
+        display.hitanykey("Press ENTER to continue.")
+        sys.exit()
+
+    dbcon.close()
+
+def updateMysqlTables(display, opts):
     """ Interactive mysql script execution """
 
-    display.newpage("MySQL Database setup")
-
     config = Config()
+    dbsettings = config.getsection("datawarehouse")
+
+    checkForPreviousInstall(display, dbsettings)
 
     migration = pkg_resources.resource_filename(__name__, "migrations/1.0-1.1/modw_supremm.sql")
 
-    dbsettings = config.getsection("datawarehouse")
     host = dbsettings['host']
     port = dbsettings['port'] if 'port' in dbsettings else 3306
 
+    display.newpage("MySQL Database setup")
     myrootuser = display.prompt_string("DB Admin Username", "root")
     myrootpass = display.prompt_password("DB Admin Password")
 
@@ -43,11 +65,11 @@ def update_mysql_tables(display, opts):
         if retval != 0:
             display.print_warning("""
 
-An error occurred creating the tables. Please create the tables manually
+An error occurred migrating the tables. Please create the tables manually
 following the documentation in the install guide.
 """)
         else:
-            display.print_text("Sucessfully created tables")
+            display.print_text("Sucessfully migrated tables")
     except OSError as e:
         display.print_warning("""
 
@@ -62,7 +84,7 @@ following the documentation in the install guide.
     display.hitanykey("Press ENTER to continue.")
 
 
-def signal_handler(sig, _):
+def signalHandler(sig, _):
     """ clean exit on an INT signal """
     if sig == signal.SIGINT:
         sys.exit(0)
@@ -77,10 +99,10 @@ def main():
 
     opts = parser.parse_args()
 
-    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGINT, signalHandler)
 
     with XDMoDStyleSetupMenu() as display:
-        update_mysql_tables(display, opts)
+        updateMysqlTables(display, opts)
 
 
 if __name__ == "__main__":
