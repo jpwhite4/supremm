@@ -1,4 +1,4 @@
-SUPReMM Processing Tools
+HPC Job Performance Data Processing Tools
 ========================
 
 SUPReMM is a comprehensive open-source tool chain that provides resource
@@ -35,9 +35,25 @@ page][pcpbintray]. Install the EPEL repository configuration:
 
     yum install epel-release
 
-Install the build dependencies:
+Then install the development dependencies
 
-    yum install rpm-build pcp-libs-devel gcc python-devel
+    yum install rpm-build \
+        gcc \
+        numpy \
+        scipy \
+        python-devel \
+        python2-pip \
+        python2-mock \
+        python-ctypes \
+        python-pcp \
+        python-pymongo \
+        MySQL-python \
+        Cython \
+        pcp-devel
+
+There are also few required packages that are not available as RPMs:
+
+    pip install pylint==1.8.3 coverage pytest pytest-cov setuptools==36.4.0 pexpect==4.4.0
 
 Installation
 ------------

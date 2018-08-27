@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.0] - 2018-09-07
+
+### Added
+
+- Added support for XDMoD 8.0
+- Added plugin to detect periodic timeseries patterns.
+- Add support for AMD Interlagos performance counters
+- Add timeseries data collection for nvidia GPU
+- Add support for handling overflow in range limited counters
+
+### Changed
+
+- Changed the database schema for the PCP archive index to improve scalability
+- Python version 2.6 (and Centos 6) is no longer supported
+- Improved logging of job summarization errors
+- More fine-grained selection of jobs to process from the summarization software command line.
+- Improved performance of index archive script
+- Improved performance of summarzation software
+
 ## [1.0.4] - 2017-11-22
 
 ### Fixed
