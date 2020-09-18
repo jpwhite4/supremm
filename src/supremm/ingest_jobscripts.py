@@ -73,10 +73,10 @@ class DbHelper(object):
             qdata = [data['resource_id'], data['local_job_id_raw'], data['script']]
 
         cur.execute(self.query, qdata)
+        self.con.commit()
 
         self.buffered += 1
         if self.buffered > 100:
-            self.con.commit()
             self.buffered = 0
 
     def postinsert(self):
