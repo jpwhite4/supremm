@@ -48,7 +48,7 @@ class DbHelper(object):
                         WHERE
                             resource_id = %s 
                             AND local_job_id_raw = %s
-                        ON DUPLICATE KEY UPDATE script = script"""
+                        ON DUPLICATE KEY UPDATE script = VALUES(script)"""
 
             if self.timestamp_mode == 'start':
                 self.query += ' AND ABS(DATEDIFF(DATE(FROM_UNIXTIME(start_time_ts)), %s)) < 2'
