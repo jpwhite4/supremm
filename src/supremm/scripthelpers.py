@@ -41,7 +41,7 @@ def getdbconnection(configsection, as_dict=False, defaultargs={}):
                      "pass": "passwd",
                      "port": "port"}
 
-        for confval, myval in translate.iteritems():
+        for confval, myval in translate.items():
             if confval in configsection:
                 dbargs[myval] = configsection[confval]
 

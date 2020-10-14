@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function, division
+
 
 from datetime import datetime
 import logging
@@ -49,7 +49,7 @@ class TimeseriesPatterns(Plugin):
         self.section_len = (self.end_time - self.start_time) / self.SECTIONS
 
         self.nodes = {}
-        self.section_start_timestamps = [[] for _ in xrange(self.SECTIONS)]
+        self.section_start_timestamps = [[] for _ in range(self.SECTIONS)]
         self.metricNames = [str.replace(metric, '.', '-') for metric in self.requiredMetrics]
 
         self.resource = job.acct['partition']
@@ -62,7 +62,7 @@ class TimeseriesPatterns(Plugin):
 
         # associate each metric with its data point, as tuples of (metric, data)
         # sum across the mountpoints to get one total data point
-        metrics = zip(self.metricNames, (np.sum(x) for x in data))
+        metrics = list(zip(self.metricNames, (np.sum(x) for x in data)))
 
         nodename = nodemeta.nodename
         if nodename not in self.nodes:

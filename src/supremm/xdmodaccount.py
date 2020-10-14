@@ -479,7 +479,7 @@ def test():
     config = Config()
     xdm = XDMoDAcct(13, config)
     for job in xdm.get(1444151688, None):
-        print job
+        print(job)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ import logging
 import math
 
 import pytz
-import tzlocal
 from pcp import pmapi
 import cpmapi as c_pmapi
 import time
@@ -39,7 +38,7 @@ JOB_ID_REGEX = re.compile(r"^(?:(\d+)(?:[_\[](\d+)?\]?)?).*$")
 
 class TimezoneAdjuster(object):
     def __init__(self, timezone_name, guess_early=True):
-        self.timezone = pytz.timezone(timezone_name) if timezone_name is not None else tzlocal.get_localzone()
+        self.timezone = pytz.timezone(timezone_name) if timezone_name is not None else datetime.now(datetime.timezone(datetime.timedelta(0))).astimezone().tzinfo
         self.guess_early = guess_early
 
     def adjust(self, dt):
@@ -122,7 +121,7 @@ class PcpArchiveProcessor(object):
         if not match:
             return None
 
-        date_dict = {k: int(v) for k, v in match.groupdict().iteritems()}
+        date_dict = {k: int(v) for k, v in match.groupdict().items()}
         start_datetime = datetime(**date_dict)
         return self.tz_adjuster.adjust(start_datetime)
 
