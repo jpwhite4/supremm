@@ -1,6 +1,6 @@
 """ Implementation for account reader that gets data from the XDMoD datawarehouse """
 
-from MySQLdb import OperationalError, ProgrammingError
+from pymysql import OperationalError, ProgrammingError
 from supremm.config import Config
 from supremm.accounting import Accounting, ArchiveCache
 from supremm.scripthelpers import getdbconnection

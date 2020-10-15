@@ -4,7 +4,7 @@ Abstraction of the job accouting data
 """
 
 from supremm.accounting import Accounting, ArchiveCache
-import MySQLdb as mdb
+import pymysql as mdb
 from supremm import batch_acct
 from supremm.Job import Job
 from supremm.config import Config

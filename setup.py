@@ -63,6 +63,7 @@ setup(
     },
     install_requires=[
         'numpy',
+        'PyMySQL',
         'pcp',
         'Cython',
         'scipy',

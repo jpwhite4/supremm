@@ -7,7 +7,7 @@ import sys
 import logging
 import glob
 from getopt import getopt
-from MySQLdb import ProgrammingError
+from pymysql import ProgrammingError
 from supremm.config import Config
 from supremm.scripthelpers import getdbconnection
 
